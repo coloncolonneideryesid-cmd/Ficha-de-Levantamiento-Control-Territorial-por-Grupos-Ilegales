@@ -1381,25 +1381,174 @@ function prevFotos(e) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════
+   INTEGRACIÓN GOOGLE SHEETS — VIRTUS GLOBAL PP8
+   Reemplaza la URL_DEL_SCRIPT con tu Web App URL desplegada
+═══════════════════════════════════════════════════════ */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzByiUleO4ajvmxAZA48_MbuHJ9f-FZOa-r5RZNSwwgEGdYdJ18P9SF_YTF12SOTRgj/exec'; // ← PEGAR AQUÍ TU WEB APP URL
+
+/* ─── RECOLECTOR DE DATOS ─────────────── */
+function recolectarDatos() {
+  // Helper: radio por name
+  const radio = name => {
+    const el = document.querySelector('input[name="' + name + '"]:checked');
+    if (!el) return '';
+    const btn = el.closest('.nivel-btn') || el.closest('.opt') || el.closest('label');
+    return btn ? btn.textContent.trim().replace(/\n.*/s,'').trim() : el.value;
+  };
+
+  // Helper: chips seleccionados en un contenedor
+  const chips = selector => Array.from(
+    document.querySelectorAll(selector + ' .chip.sel')
+  ).map(c => c.textContent.trim()).join(' | ');
+
+  // Helper: checkboxes seleccionados en un contenedor
+  const checks = selector => Array.from(
+    document.querySelectorAll(selector + ' .opt input[type="checkbox"]:checked')
+  ).map(c => c.closest('.opt').textContent.trim()).join(' | ');
+
+  // Helper: valor de nivel-btn
+  const nivel = name => {
+    const el = document.querySelector('input[name="' + name + '"]:checked');
+    if (!el) return '';
+    const btn = el.closest('.nivel-btn');
+    return btn ? btn.textContent.trim().split('\n')[0].replace(/^[🟢🟡🟠🔴]\s*/, '').trim() : '';
+  };
+
+  return {
+    // SECCIÓN 1 — Identificación
+    codigo:              document.getElementById('codigo')?.value || '',
+    fecha:               document.getElementById('fecha')?.value || '',
+    hora_inicio:         document.getElementById('hora')?.value || '',
+    localidad:           document.getElementById('localidad')?.value || '',
+    barrio:              document.getElementById('barrio')?.value || '',
+    zona_problema:       radio('zona-prob') ||
+                         document.querySelector('select[id="zona-select"]')?.value || '',
+    latitud:             document.getElementById('lat')?.value || '',
+    longitud:            document.getElementById('lng')?.value || '',
+    responsable:         document.getElementById('resp')?.value || '',
+    cargo:               document.getElementById('cargo')?.value || '',
+    tipo_levantamiento:  radio('tipo-lev'),
+
+    // SECCIÓN 2 — Contexto
+    desc_sector:         document.getElementById('desc-sector')?.value || '',
+    tipo_zona:           radio('zona'),
+    densidad:            radio('dens'),
+    tiempo_situacion:    radio('tiempo'),
+    intervenciones_previas: radio('interv'),
+    servicios_publicos:  chips('#s1 .chips') || chips('#s0 .chips'),
+
+    // SECCIÓN 3 — Manifestaciones
+    m1_nivel:            nivel('niv1'),
+    m1_servicios:        chips('.manif-card:nth-of-type(1) .chips'),
+    m1_descripcion:      document.getElementById('m1')?.value || '',
+    m1_fuente:           radio('f1'),
+
+    m2_nivel:            nivel('niv2'),
+    m2_descripcion:      document.getElementById('m2')?.value || '',
+
+    m3_nivel:            nivel('niv3'),
+    m3_ultima_denuncia:  radio('denu3'),
+    m3_descripcion:      document.getElementById('m3')?.value || '',
+
+    m4_nivel:            nivel('niv4'),
+    m4_ambitos:          chips('.manif-card:nth-of-type(4) .chips'),
+    m4_descripcion:      document.getElementById('m4')?.value || '',
+
+    m5_nivel:            nivel('niv5'),
+    m5_num_homicidios:   document.querySelector('input[name="niv5"]')?.closest('.manif-body')?.querySelector('input[type="number"]')?.value || '',
+    m5_fuente_dato:      radio('f5') || document.querySelector('select#m5-fuente')?.value || '',
+    m5_descripcion:      document.getElementById('m5')?.value || '',
+
+    m6_nivel:            nivel('niv6'),
+    m6_num_viviendas:    document.querySelector('input[name="niv6"]')?.closest('.manif-body')?.querySelector('input[type="number"]')?.value || '',
+    m6_tipo_ocupacion:   chips('.manif-card:nth-of-type(6) .chips'),
+    m6_descripcion:      document.getElementById('m6')?.value || '',
+
+    m7_nivel:            nivel('niv7'),
+    m7_estado_desp:      radio('desp7'),
+    m7_num_familias:     document.querySelector('input[name="niv7"]')?.closest('.manif-body')?.querySelector('input[type="number"]')?.value || '',
+    m7_descripcion:      document.getElementById('m7')?.value || '',
+
+    m8_nivel:            nivel('niv8'),
+    m8_servicios_nd:     chips('.manif-card:nth-of-type(8) .chips'),
+    m8_presencia_pol:    radio('pol8'),
+    m8_descripcion:      document.getElementById('m8')?.value || '',
+
+    // SECCIÓN 4 — Actores
+    tipo_estructura:     radio('tipo-grupo'),
+    actividades_ilegales: chips('#s3 .chips') || chips('.card-body .chips'),
+    tamano_estructura:   radio('tamano'),
+    perfil_grupo:        document.getElementById('perfil-grupo')?.value || '',
+    entidades_presentes: Array.from(document.querySelectorAll('#s3 .chip.sel')).map(c=>c.textContent.trim()).join(' | '),
+    cap_institucional:   radio('cap-inst'),
+    brechas_inst:        Array.from(document.querySelectorAll('input[name="cap-inst"]')).length > 0 ?
+                         Array.from(document.querySelectorAll('#s3 .chip.sel.c-r')).map(c=>c.textContent.trim()).join(' | ') : '',
+
+    // SECCIÓN 5 — Cierre
+    hora_fin:            document.getElementById('hora-fin')?.value || '',
+    num_personas:        document.querySelector('#s4 input[type="number"]')?.value || '',
+    conclusion:          document.getElementById('conclusion')?.value || '',
+    urgencia:            radio('urgencia'),
+    acciones:            checks('#s4'),
+    seguimiento:         radio('seguim'),
+    firma:               document.getElementById('firma')?.value || '',
+    timestamp_envio:     new Date().toISOString(),
+  };
+}
+
 /* ─── BORRADOR ──────────────────────── */
 function guardarBorrador() {
   try {
-    sessionStorage.setItem('pp8_borrador', JSON.stringify({
-      codigo: document.getElementById('codigo').value,
-      fecha: document.getElementById('fecha').value,
-      localidad: document.getElementById('localidad').value,
-      barrio: document.getElementById('barrio').value,
-      resp: document.getElementById('resp').value,
-      ts: new Date().toISOString()
-    }));
-    alert('✅ Borrador guardado. Puede continuar más tarde.');
-  } catch (e) { alert('No fue posible guardar el borrador en este dispositivo.'); }
+    const data = recolectarDatos();
+    localStorage.setItem('pp8_borrador', JSON.stringify(data));
+    mostrarToast('💾 Borrador guardado localmente.', 'ok');
+  } catch(e) {
+    mostrarToast('⚠ No se pudo guardar el borrador.', 'err');
+  }
 }
 
-/* ─── ENVÍO ─────────────────────────── */
-function enviar() {
+/* ─── ENVÍO A GOOGLE SHEETS ─────────── */
+async function enviar() {
   if (!validar(4)) return;
-  const cod = document.getElementById('codigo').value || 'PP8-SIN-CODIGO';
+
+  // Verificar que la URL del script fue configurada
+  if (SCRIPT_URL === 'URL_DEL_SCRIPT_AQUI') {
+    mostrarToast('⚠ Configura primero la URL del Apps Script (ver instrucciones).', 'err');
+    return;
+  }
+
+  const cod     = document.getElementById('codigo').value || 'PP8-SIN-CODIGO';
+  const btnEnviar = document.querySelector('.btn-submit');
+  const btnText   = btnEnviar.textContent;
+
+  // Estado de carga
+  btnEnviar.textContent = '⏳ Enviando a Google Sheets...';
+  btnEnviar.disabled = true;
+
+  try {
+    const data = recolectarDatos();
+
+    const resp = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode:   'no-cors',   // Google Apps Script requiere no-cors
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    // Con no-cors el response es opaque — asumimos éxito si no hay excepción
+    mostrarExito(cod);
+
+  } catch(err) {
+    btnEnviar.textContent = btnText;
+    btnEnviar.disabled = false;
+    mostrarToast('❌ Error de conexión. Guarda el borrador e intenta de nuevo.', 'err');
+    console.error('Error PP8 envío:', err);
+  }
+}
+
+/* ─── PANTALLA DE ÉXITO ─────────────── */
+function mostrarExito(cod) {
   document.getElementById('success-code').textContent = cod;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('vis'));
   document.getElementById('success').classList.add('vis');
@@ -1408,6 +1557,26 @@ function enviar() {
   document.querySelectorAll('.ps').forEach(s => s.classList.add('done'));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+/* ─── TOAST DE ESTADO ───────────────── */
+function mostrarToast(msg, tipo) {
+  let t = document.getElementById('pp8-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'pp8-toast';
+    t.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+      padding:12px 24px;border-radius:10px;font-family:Space Grotesk,sans-serif;
+      font-size:.9em;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);
+      transition:all .3s;max-width:90vw;text-align:center;`;
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = tipo === 'ok' ? '#065f46' : tipo === 'err' ? '#7f1d1d' : '#1e3a5f';
+  t.style.color = '#fff';
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 3500);
+}
+
 function nuevaFicha() {
   document.getElementById('success').classList.remove('vis');
   cur = 0; goTo(0);
