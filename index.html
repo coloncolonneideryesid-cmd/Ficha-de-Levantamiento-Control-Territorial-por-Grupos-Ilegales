@@ -1385,7 +1385,7 @@ function prevFotos(e) {
    INTEGRACIÓN GOOGLE SHEETS — VIRTUS GLOBAL PP8
    Reemplaza la URL_DEL_SCRIPT con tu Web App URL desplegada
 ═══════════════════════════════════════════════════════ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6PM-wTjfAzI103w-I8ilK3iAMG9nGPwvZG5pdLO7QKPuQ67yhpkV-4sbLRcxtYLo8/exec'; // ← PEGAR AQUÍ TU WEB APP URL
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6PM-wTjfAzI103w-I8ilK3iAMG9nGPwvZG5pdLO7QKPuQ67yhpkV-4sbLRcxtYLo8/exec';
 
 /* ─── RECOLECTOR DE DATOS ─────────────── */
 function recolectarDatos() {
@@ -1512,32 +1512,62 @@ function guardarBorrador() {
 async function enviar() {
   if (!validar(4)) return;
 
-  // Verificar que la URL del script fue configurada
   if (SCRIPT_URL === 'URL_DEL_SCRIPT_AQUI') {
-    mostrarToast('⚠ Configura primero la URL del Apps Script (ver instrucciones).', 'err');
+    mostrarToast('⚠ Configura primero la URL del Apps Script.', 'err');
     return;
   }
 
-  const cod     = document.getElementById('codigo').value || 'PP8-SIN-CODIGO';
+  const cod       = document.getElementById('codigo').value || 'PP8-SIN-CODIGO';
   const btnEnviar = document.querySelector('.btn-submit');
   const btnText   = btnEnviar.textContent;
 
-  // Estado de carga
   btnEnviar.textContent = '⏳ Enviando a Google Sheets...';
   btnEnviar.disabled = true;
 
   try {
     const data = recolectarDatos();
 
-    const resp = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode:   'no-cors',   // Google Apps Script requiere no-cors
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+    // ── MÉTODO 1: fetch con JSON (funciona cuando el HTML se sirve desde servidor) ──
+    // ── MÉTODO 2: iframe oculto (fallback para file://) ──
+    // Usamos los dos en paralelo para garantizar entrega
 
-    // Con no-cors el response es opaque — asumimos éxito si no hay excepción
-    mostrarExito(cod);
+    // Método principal — fetch JSON
+    fetch(SCRIPT_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain NO dispara preflight
+      body:    JSON.stringify(data),
+    }).catch(() => {});
+
+    // Método de respaldo — formulario oculto vía iframe
+    // Siempre llega, incluso desde file://
+    const jsonStr = JSON.stringify(data);
+    const form = document.createElement('form');
+    form.method  = 'POST';
+    form.action  = SCRIPT_URL;
+    form.target  = '_pp8_frame';
+    form.style.display = 'none';
+    const inp = document.createElement('input');
+    inp.type  = 'hidden';
+    inp.name  = 'payload';
+    inp.value = jsonStr;
+    form.appendChild(inp);
+
+    // Iframe oculto para que no navegue la página
+    let iframe = document.getElementById('_pp8_frame');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.name = '_pp8_frame';
+      iframe.id   = '_pp8_frame';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => form.remove(), 3000);
+
+    // Mostrar éxito después de 1.5 s (tiempo para que llegue la petición)
+    setTimeout(() => mostrarExito(cod), 1500);
 
   } catch(err) {
     btnEnviar.textContent = btnText;
