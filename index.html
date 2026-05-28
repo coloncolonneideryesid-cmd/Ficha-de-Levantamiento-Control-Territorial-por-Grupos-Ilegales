@@ -1525,67 +1525,29 @@ async function enviar() {
   btnEnviar.disabled = true;
 
   const data = recolectarDatos();
-  let enviado = false;
 
-  // ── MÉTODO 1: fetch con FormData (urlencoded) + redirect:follow ──
-  // Google Apps Script hace un redirect 302; fetch debe seguirlo.
-  // Enviamos payload como campo de formulario para que doPost lo lea en e.parameter.payload
+  // ── URLSearchParams: idéntico al método que funcionó en consola ──
+  // FormData dispara un preflight CORS que Google Apps Script no permite.
+  // URLSearchParams envía como application/x-www-form-urlencoded, sin preflight.
   try {
-    const formData = new FormData();
-    formData.append('payload', JSON.stringify(data));
-
     const resp = await fetch(SCRIPT_URL, {
       method:   'POST',
       redirect: 'follow',
-      body:     formData,
+      body:     new URLSearchParams({ payload: JSON.stringify(data) }),
     });
 
+    // Con redirect:follow hacia Apps Script la respuesta llega como opaque (type='opaque')
+    // o como respuesta normal si no hay CORS. Cualquiera de los dos = éxito de entrega.
     if (resp.ok || resp.type === 'opaque') {
-      enviado = true;
+      setTimeout(() => mostrarExito(cod), 1800);
+    } else {
+      throw new Error('Respuesta inesperada: ' + resp.status);
     }
-  } catch(e1) {
-    console.warn('PP8 método 1 falló, intentando método 2:', e1.message);
-  }
-
-  // ── MÉTODO 2: iframe oculto (fallback para file:// o bloqueos CORS) ──
-  if (!enviado) {
-    try {
-      const jsonStr = JSON.stringify(data);
-      const form = document.createElement('form');
-      form.method  = 'POST';
-      form.action  = SCRIPT_URL;
-      form.target  = '_pp8_frame';
-      form.style.display = 'none';
-      const inp = document.createElement('input');
-      inp.type  = 'hidden';
-      inp.name  = 'payload';
-      inp.value = jsonStr;
-      form.appendChild(inp);
-
-      let iframe = document.getElementById('_pp8_frame');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.name = '_pp8_frame';
-        iframe.id   = '_pp8_frame';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-      }
-      document.body.appendChild(form);
-      form.submit();
-      setTimeout(() => form.remove(), 3000);
-      enviado = true;
-    } catch(e2) {
-      console.error('PP8 método 2 falló:', e2.message);
-    }
-  }
-
-  if (enviado) {
-    // Mostrar éxito después de 2 s (tiempo para que el servidor procese)
-    setTimeout(() => mostrarExito(cod), 2000);
-  } else {
+  } catch(err) {
+    console.error('PP8 envío falló:', err.message);
     btnEnviar.textContent = btnText;
     btnEnviar.disabled = false;
-    mostrarToast('❌ Error de conexión. Guarda el borrador e intenta de nuevo.', 'err');
+    mostrarToast('❌ Error al enviar. Revisa la consola (F12) e intenta de nuevo.', 'err');
   }
 }
 
