@@ -1526,9 +1526,6 @@ async function enviar() {
 
   const data = recolectarDatos();
 
-  // ── URLSearchParams: idéntico al método que funcionó en consola ──
-  // FormData dispara un preflight CORS que Google Apps Script no permite.
-  // URLSearchParams envía como application/x-www-form-urlencoded, sin preflight.
   try {
     const resp = await fetch(SCRIPT_URL, {
       method:   'POST',
@@ -1536,15 +1533,13 @@ async function enviar() {
       body:     new URLSearchParams({ payload: JSON.stringify(data) }),
     });
 
-    // Con redirect:follow hacia Apps Script la respuesta llega como opaque (type='opaque')
-    // o como respuesta normal si no hay CORS. Cualquiera de los dos = éxito de entrega.
     if (resp.ok || resp.type === 'opaque') {
       setTimeout(() => mostrarExito(cod), 1800);
     } else {
       throw new Error('Respuesta inesperada: ' + resp.status);
     }
   } catch(err) {
-    console.error('PP8 envío falló:', err.message);
+    console.error('PP8 envio fallo:', err.message);
     btnEnviar.textContent = btnText;
     btnEnviar.disabled = false;
     mostrarToast('❌ Error al enviar. Revisa la consola (F12) e intenta de nuevo.', 'err');
